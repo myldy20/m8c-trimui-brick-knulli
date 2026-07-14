@@ -16,7 +16,7 @@ on:
       package_revision:
         description: Packaging revision
         required: true
-        default: "2"
+        default: "3"
         type: string
       create_release:
         description: Publish a GitHub Release after a successful build
@@ -47,7 +47,7 @@ jobs:
     env:
       M8C_VERSION: ${{ inputs.m8c_version || '2.2.3' }}
       SDL_VERSION: ${{ inputs.sdl_version || '3.2.20' }}
-      PACKAGE_REVISION: ${{ inputs.package_revision || '2' }}
+      PACKAGE_REVISION: ${{ inputs.package_revision || '3' }}
 
     steps:
       - name: Check out packaging repository
@@ -98,4 +98,4 @@ jobs:
             "dist/${PACKAGE_NAME}.zip" \
             "dist/${PACKAGE_NAME}.zip.sha256" \
             --title "m8c ${M8C_VERSION} for TrimUI Brick / Knulli (r${PACKAGE_REVISION})" \
-            --notes "Ready-to-copy ARM64 package for TrimUI Brick/Knulli, built with SDL ${SDL_VERSION}. Includes a one-command installer, SD-card layout, CPU frequency management and an optional suspend autosave patch."
+            --notes "Ready-to-copy ARM64 package for TrimUI Brick/Knulli, built with SDL ${SDL_VERSION}. Includes SSH and SD-card installation, CPU frequency management, optional suspend autosave protection and switchable Original Brick / Face Buttons control profiles."
