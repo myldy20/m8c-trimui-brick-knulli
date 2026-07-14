@@ -15,6 +15,10 @@ fail() {
 [ -f "$TARGET" ] || fail "$TARGET was not found."
 command -v python3 >/dev/null 2>&1 || fail "python3 is required."
 
+has_compatible_legacy_patch() {
+    grep -Fq "M8_AUTOSAVE" "$TARGET" && grep -Fq 'os.write(fd, b"D")' "$TARGET"
+}
+
 backup_target() {
     timestamp="$(date +%Y%m%d-%H%M%S 2>/dev/null || echo unknown)"
     mkdir -p "$BACKUP_ROOT"
@@ -26,6 +30,11 @@ backup_target() {
 install_patch() {
     if grep -Fq "$BEGIN_MARKER" "$TARGET"; then
         echo "Suspend autosave patch is already installed."
+        return 0
+    fi
+
+    if has_compatible_legacy_patch; then
+        echo "A compatible M8 autosave block is already present; leaving it unchanged."
         return 0
     fi
 
@@ -89,7 +98,12 @@ PY
 
 remove_patch() {
     if ! grep -Fq "$BEGIN_MARKER" "$TARGET"; then
-        echo "Suspend autosave patch is not installed."
+        if has_compatible_legacy_patch; then
+            echo "A compatible legacy autosave block is present, but it has no project markers."
+            echo "It was not removed automatically. Restore one of your knulli-suspend backups if needed."
+        else
+            echo "Suspend autosave patch is not installed."
+        fi
         return 0
     fi
 
@@ -137,6 +151,8 @@ case "$ACTION" in
     status)
         if grep -Fq "$BEGIN_MARKER" "$TARGET"; then
             echo "Suspend autosave patch: installed"
+        elif has_compatible_legacy_patch; then
+            echo "Suspend autosave patch: compatible legacy block detected"
         else
             echo "Suspend autosave patch: not installed"
         fi
