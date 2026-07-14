@@ -16,7 +16,7 @@ on:
       package_revision:
         description: Packaging revision
         required: true
-        default: "1"
+        default: "2"
         type: string
       create_release:
         description: Publish a GitHub Release after a successful build
@@ -30,6 +30,7 @@ on:
       - ".github/workflows/build-arm64.yml"
       - "scripts/**"
       - "packaging/**"
+      - "install.sh"
       - "README.md"
 
 permissions:
@@ -42,7 +43,7 @@ jobs:
     env:
       M8C_VERSION: ${{ inputs.m8c_version || '2.2.3' }}
       SDL_VERSION: ${{ inputs.sdl_version || '3.2.20' }}
-      PACKAGE_REVISION: ${{ inputs.package_revision || '1' }}
+      PACKAGE_REVISION: ${{ inputs.package_revision || '2' }}
 
     steps:
       - name: Check out packaging repository
@@ -93,4 +94,4 @@ jobs:
             "dist/${PACKAGE_NAME}.zip" \
             "dist/${PACKAGE_NAME}.zip.sha256" \
             --title "m8c ${M8C_VERSION} for TrimUI Brick / Knulli (r${PACKAGE_REVISION})" \
-            --notes "ARM64 build of m8c ${M8C_VERSION} with a private SDL ${SDL_VERSION} runtime. The installer creates a parallel m8c-v2 installation and does not overwrite the existing m8c client."
+            --notes "Ready-to-copy ARM64 package for TrimUI Brick/Knulli, built with SDL ${SDL_VERSION}. Includes a one-command installer, SD-card layout, CPU frequency management and an optional suspend autosave patch."
