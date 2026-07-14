@@ -3,7 +3,8 @@ set -Eeuo pipefail
 
 M8C_VERSION="${M8C_VERSION:-2.2.3}"
 SDL_VERSION="${SDL_VERSION:-3.2.20}"
-PACKAGE_REVISION="${PACKAGE_REVISION:-1}"
+PACKAGE_REVISION="${PACKAGE_REVISION:-2}"
+ORIGINAL_PORT_TAG="${ORIGINAL_PORT_TAG:-v0.1}"
 OUT_DIR="${OUT_DIR:-/work/dist}"
 BUILD_DIR="${BUILD_DIR:-/tmp/m8c-build}"
 PREFIX="${PREFIX:-/opt/m8c}"
@@ -44,6 +45,7 @@ apt-get install -y --no-install-recommends \
     libgles2-mesa-dev \
     libudev-dev \
     patchelf \
+    unzip \
     zip \
     xz-utils
 rm -rf /var/lib/apt/lists/*
@@ -112,40 +114,92 @@ git clone \
 cd "$BUILD_DIR/m8c"
 make -j"$(nproc)"
 
+# Reuse the tested Knulli launcher layout, default config and kernel module from
+# the original TrimUI Brick port, then replace only the m8c userspace client.
+cd "$BUILD_DIR"
+curl -fsSL \
+    "https://api.github.com/repos/f32-0/m8c-brick-knulli/releases/tags/${ORIGINAL_PORT_TAG}" \
+    -o original-port-release.json
+
+ORIGINAL_PORT_URL="$(python3 - original-port-release.json <<'PY'
+import json
+import pathlib
+import sys
+
+release = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+for asset in release.get("assets", []):
+    name = asset.get("name", "")
+    if name.endswith(".zip"):
+        print(asset["browser_download_url"])
+        break
+else:
+    raise SystemExit("No ZIP asset found in the original port release.")
+PY
+)"
+
+curl -fL "$ORIGINAL_PORT_URL" -o original-port.zip
+mkdir -p original-port
+unzip -q original-port.zip -d original-port
+
+ORIGINAL_LAUNCHER="$(find original-port -type f -name m8c.sh ! -name '._*' -print -quit)"
+ORIGINAL_MODULE="$(find original-port -type f -name cdc-acm.ko ! -name '._*' -print -quit)"
+ORIGINAL_CONFIG="$(find original-port -type f -name config.ini ! -name '._*' -print -quit)"
+
+test -n "$ORIGINAL_LAUNCHER"
+test -n "$ORIGINAL_MODULE"
+test -n "$ORIGINAL_CONFIG"
+
 PACKAGE_NAME="m8c-trimui-brick-knulli-${M8C_VERSION}-r${PACKAGE_REVISION}"
 PACKAGE_DIR="$OUT_DIR/$PACKAGE_NAME"
-mkdir -p "$PACKAGE_DIR/lib"
+PORTS_DIR="$PACKAGE_DIR/roms/ports"
+M8C_DIR="$PORTS_DIR/m8c"
 
-cp m8c "$PACKAGE_DIR/m8c-bin"
-cp -L "$SDL_LIBRARY" "$PACKAGE_DIR/lib/libSDL3.so.0"
-cp gamecontrollerdb.txt "$PACKAGE_DIR/gamecontrollerdb.txt"
-cp LICENSE "$PACKAGE_DIR/LICENSE-m8c"
-cp "$BUILD_DIR/SDL3-${SDL_VERSION}/LICENSE.txt" "$PACKAGE_DIR/LICENSE-SDL.txt"
+mkdir -p "$M8C_DIR/lib" "$M8C_DIR/m8c" "$M8C_DIR/tools"
+
+cp "$BUILD_DIR/m8c/m8c" "$M8C_DIR/m8c-bin"
+cp -L "$SDL_LIBRARY" "$M8C_DIR/lib/libSDL3.so.0"
+cp "$ORIGINAL_MODULE" "$M8C_DIR/cdc-acm.ko"
+cp "$ORIGINAL_CONFIG" "$M8C_DIR/m8c/config.ini"
+cp "$BUILD_DIR/m8c/gamecontrollerdb.txt" "$M8C_DIR/m8c/gamecontrollerdb.txt"
+cp "$BUILD_DIR/m8c/LICENSE" "$M8C_DIR/LICENSE-m8c"
+cp "$BUILD_DIR/SDL3-${SDL_VERSION}/LICENSE.txt" "$M8C_DIR/LICENSE-SDL.txt"
+cp /work/packaging/patch-suspend.sh "$M8C_DIR/tools/patch-suspend.sh"
 cp /work/packaging/install.sh "$PACKAGE_DIR/install.sh"
 cp /work/README.md "$PACKAGE_DIR/README.md"
 
-chmod 755 "$PACKAGE_DIR/m8c-bin" "$PACKAGE_DIR/install.sh"
-patchelf --set-rpath '$ORIGIN/lib' "$PACKAGE_DIR/m8c-bin"
-strip --strip-unneeded "$PACKAGE_DIR/m8c-bin"
-strip --strip-unneeded "$PACKAGE_DIR/lib/libSDL3.so.0"
+python3 /work/packaging/patch-launcher.py "$ORIGINAL_LAUNCHER" "$PORTS_DIR/m8c.sh"
 
-cat > "$PACKAGE_DIR/VERSIONS.txt" <<EOF
+chmod 755 \
+    "$M8C_DIR/m8c-bin" \
+    "$M8C_DIR/tools/patch-suspend.sh" \
+    "$PORTS_DIR/m8c.sh" \
+    "$PACKAGE_DIR/install.sh"
+
+patchelf --set-rpath '$ORIGIN/lib' "$M8C_DIR/m8c-bin"
+strip --strip-unneeded "$M8C_DIR/m8c-bin"
+strip --strip-unneeded "$M8C_DIR/lib/libSDL3.so.0"
+
+cat > "$M8C_DIR/VERSIONS.txt" <<EOF_VERSION
 m8c=${M8C_VERSION}
 SDL3=${SDL_VERSION}
 package_revision=${PACKAGE_REVISION}
 architecture=aarch64
 build_userspace=debian-bullseye
-EOF
+original_port=${ORIGINAL_PORT_TAG}
+EOF_VERSION
 
 (
-    cd "$PACKAGE_DIR"
-    sha256sum m8c-bin lib/libSDL3.so.0 > SHA256SUMS
+    cd "$M8C_DIR"
+    sha256sum m8c-bin lib/libSDL3.so.0 cdc-acm.ko m8c/config.ini > SHA256SUMS
 )
 
-file "$PACKAGE_DIR/m8c-bin"
-readelf -h "$PACKAGE_DIR/m8c-bin" | grep -E 'Class:|Machine:'
-readelf --version-info "$PACKAGE_DIR/m8c-bin" | grep -o 'GLIBC_[0-9.]*' | sort -Vu || true
-ldd "$PACKAGE_DIR/m8c-bin" || true
+file "$M8C_DIR/m8c-bin"
+readelf -h "$M8C_DIR/m8c-bin" | grep -E 'Class:|Machine:'
+readelf --version-info "$M8C_DIR/m8c-bin" | grep -o 'GLIBC_[0-9.]*' | sort -Vu || true
+LD_LIBRARY_PATH="$M8C_DIR/lib" ldd "$M8C_DIR/m8c-bin"
+bash -n "$PORTS_DIR/m8c.sh"
+sh -n "$PACKAGE_DIR/install.sh"
+sh -n "$M8C_DIR/tools/patch-suspend.sh"
 
 cd "$OUT_DIR"
 zip -r "${PACKAGE_NAME}.zip" "$PACKAGE_NAME"
