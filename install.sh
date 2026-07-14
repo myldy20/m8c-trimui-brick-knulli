@@ -45,6 +45,9 @@ PY
 [ "$(uname -m)" = "aarch64" ] || fail "This installer is intended for the ARM64 TrimUI Brick."
 command -v python3 >/dev/null 2>&1 || fail "python3 is required by the installer."
 
+# Do not inherit a working directory that may be renamed or removed during an
+# upgrade on the exFAT data partition.
+cd /
 mkdir -p "$WORK"
 
 echo "Fetching the latest m8c package for TrimUI Brick..."
@@ -137,6 +140,20 @@ case "$SLEEP_MODE" in
     *) fail "Unknown M8C_SLEEP_PATCH value: $SLEEP_MODE" ;;
 esac
 
+CONTROL_MODE="${M8C_CONTROL_PROFILE:-keep}"
+case "$CONTROL_MODE" in
+    keep|original|face-buttons) ;;
+    face) CONTROL_MODE="face-buttons" ;;
+    *) fail "Unknown M8C_CONTROL_PROFILE value: $CONTROL_MODE" ;;
+esac
+
 echo
 chmod 755 "$PACKAGE_INSTALLER"
 sh "$PACKAGE_INSTALLER" "$SLEEP_ARG"
+
+if [ "$CONTROL_MODE" != "keep" ]; then
+    CONTROL_TOOL="/userdata/roms/ports/m8c/tools/set-controls.sh"
+    [ -f "$CONTROL_TOOL" ] || fail "The installed package does not contain set-controls.sh."
+    chmod 755 "$CONTROL_TOOL"
+    sh "$CONTROL_TOOL" "$CONTROL_MODE"
+fi
