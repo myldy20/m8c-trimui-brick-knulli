@@ -1,0 +1,96 @@
+name: Build ARM64 release
+
+on:
+  workflow_dispatch:
+    inputs:
+      m8c_version:
+        description: Upstream m8c release without the leading v
+        required: true
+        default: "2.2.3"
+        type: string
+      sdl_version:
+        description: SDL3 release used for the portable runtime
+        required: true
+        default: "3.2.20"
+        type: string
+      package_revision:
+        description: Packaging revision
+        required: true
+        default: "1"
+        type: string
+      create_release:
+        description: Publish a GitHub Release after a successful build
+        required: true
+        default: true
+        type: boolean
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-arm64.yml"
+      - "scripts/**"
+      - "packaging/**"
+      - "README.md"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    env:
+      M8C_VERSION: ${{ inputs.m8c_version || '2.2.3' }}
+      SDL_VERSION: ${{ inputs.sdl_version || '3.2.20' }}
+      PACKAGE_REVISION: ${{ inputs.package_revision || '1' }}
+
+    steps:
+      - name: Check out packaging repository
+        uses: actions/checkout@v4
+
+      - name: Enable ARM64 emulation
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Build inside disposable Debian ARM64 container
+        run: |
+          docker run --rm \
+            --platform linux/arm64 \
+            -e M8C_VERSION \
+            -e SDL_VERSION \
+            -e PACKAGE_REVISION \
+            -e OUT_DIR=/work/dist \
+            -v "$PWD:/work" \
+            -w /work \
+            arm64v8/debian:bullseye \
+            bash /work/scripts/build-arm64.sh
+
+      - name: Show package contents
+        run: |
+          PACKAGE_NAME="$(cat dist/package-name.txt)"
+          unzip -l "dist/${PACKAGE_NAME}.zip"
+          cat "dist/${PACKAGE_NAME}.zip.sha256"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: m8c-trimui-brick-knulli-${{ env.M8C_VERSION }}-r${{ env.PACKAGE_REVISION }}
+          path: |
+            dist/*.zip
+            dist/*.zip.sha256
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: github.event_name == 'workflow_dispatch' && inputs.create_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PACKAGE_NAME="$(cat dist/package-name.txt)"
+          TAG="m8c-v${M8C_VERSION}-brick-r${PACKAGE_REVISION}"
+
+          gh release create "$TAG" \
+            "dist/${PACKAGE_NAME}.zip" \
+            "dist/${PACKAGE_NAME}.zip.sha256" \
+            --title "m8c ${M8C_VERSION} for TrimUI Brick / Knulli (r${PACKAGE_REVISION})" \
+            --notes "ARM64 build of m8c ${M8C_VERSION} with a private SDL ${SDL_VERSION} runtime. The installer creates a parallel m8c-v2 installation and does not overwrite the existing m8c client."
