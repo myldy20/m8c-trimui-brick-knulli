@@ -40,7 +40,19 @@ The installer downloads the latest release, verifies its SHA-256 checksum and in
 
 During installation it asks whether to enable the optional suspend/autosave patch described below.
 
-For a non-interactive install with the suspend patch:
+For a fully non-interactive install with suspend autosave protection and the **Face Buttons** control profile:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/myldy20/m8c-trimui-brick-knulli/main/install.sh | M8C_SLEEP_PATCH=yes M8C_CONTROL_PROFILE=face-buttons sh
+```
+
+The available control-profile values are:
+
+- `keep` — keep the existing configuration when upgrading; this is the default
+- `original` — apply the Original Brick profile
+- `face-buttons` — apply the Face Buttons profile
+
+For a non-interactive install with the suspend patch but without forcing a control profile:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/myldy20/m8c-trimui-brick-knulli/main/install.sh | M8C_SLEEP_PATCH=yes sh
