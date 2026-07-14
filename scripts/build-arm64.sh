@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 M8C_VERSION="${M8C_VERSION:-2.2.3}"
 SDL_VERSION="${SDL_VERSION:-3.2.20}"
-PACKAGE_REVISION="${PACKAGE_REVISION:-2}"
+PACKAGE_REVISION="${PACKAGE_REVISION:-3}"
 ORIGINAL_PORT_TAG="${ORIGINAL_PORT_TAG:-v0.1}"
 OUT_DIR="${OUT_DIR:-/work/dist}"
 BUILD_DIR="${BUILD_DIR:-/tmp/m8c-build}"
@@ -164,6 +164,7 @@ cp "$BUILD_DIR/m8c/gamecontrollerdb.txt" "$M8C_DIR/m8c/gamecontrollerdb.txt"
 cp "$BUILD_DIR/m8c/LICENSE" "$M8C_DIR/LICENSE-m8c"
 cp "$BUILD_DIR/SDL3-${SDL_VERSION}/LICENSE.txt" "$M8C_DIR/LICENSE-SDL.txt"
 cp /work/packaging/patch-suspend.sh "$M8C_DIR/tools/patch-suspend.sh"
+cp /work/packaging/set-controls.sh "$M8C_DIR/tools/set-controls.sh"
 cp /work/packaging/install.sh "$PACKAGE_DIR/install.sh"
 cp /work/README.md "$PACKAGE_DIR/README.md"
 
@@ -172,6 +173,7 @@ python3 /work/packaging/patch-launcher.py "$ORIGINAL_LAUNCHER" "$PORTS_DIR/m8c.s
 chmod 755 \
     "$M8C_DIR/m8c-bin" \
     "$M8C_DIR/tools/patch-suspend.sh" \
+    "$M8C_DIR/tools/set-controls.sh" \
     "$PORTS_DIR/m8c.sh" \
     "$PACKAGE_DIR/install.sh"
 
@@ -200,6 +202,7 @@ LD_LIBRARY_PATH="$M8C_DIR/lib" ldd "$M8C_DIR/m8c-bin"
 bash -n "$PORTS_DIR/m8c.sh"
 sh -n "$PACKAGE_DIR/install.sh"
 sh -n "$M8C_DIR/tools/patch-suspend.sh"
+sh -n "$M8C_DIR/tools/set-controls.sh"
 
 cd "$OUT_DIR"
 zip -r "${PACKAGE_NAME}.zip" "$PACKAGE_NAME"
