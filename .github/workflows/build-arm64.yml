@@ -36,6 +36,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: build-arm64-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-24.04
