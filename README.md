@@ -13,6 +13,7 @@ The original Brick port made this setup possible. This project keeps the same si
 - the Knulli `cdc-acm.ko` module and a ready-to-use configuration
 - a launcher that lowers the Brick CPU limit while m8c is open
 - an optional suspend/autosave patch for M8 Headless
+- two switchable control profiles
 - both SSH and SD-card installation methods
 
 The current package has been tested on a TrimUI Brick running Knulli Scarab `2026/05/11`, with a Teensy 4.1 running M8 Headless `6.5.2`.
@@ -39,13 +40,13 @@ The installer downloads the latest release, verifies its SHA-256 checksum and in
 
 During installation it asks whether to enable the optional suspend/autosave patch described below.
 
-For a non-interactive install:
+For a non-interactive install with the suspend patch:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/myldy20/m8c-trimui-brick-knulli/main/install.sh | M8C_SLEEP_PATCH=yes sh
 ```
 
-or without the suspend patch:
+Or without the suspend patch:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/myldy20/m8c-trimui-brick-knulli/main/install.sh | M8C_SLEEP_PATCH=no sh
@@ -75,7 +76,8 @@ roms/ports/
     │   ├── config.ini
     │   └── gamecontrollerdb.txt
     └── tools/
-        └── patch-suspend.sh
+        ├── patch-suspend.sh
+        └── set-controls.sh
 ```
 
 Copying the precompiled files manually does **not** change Knulli suspend behaviour. The optional patch can be enabled later over SSH:
@@ -124,6 +126,10 @@ After wake-up, USB, M8 Headless and sometimes Wi-Fi can take several seconds to 
 
 ## Controls
 
+A fresh installation uses the **Original Brick** profile from the first TrimUI Brick port. Upgrading through the SSH installer preserves the existing `config.ini`, including any control changes already made by the user.
+
+### Original Brick profile
+
 | Brick control | M8 action |
 |---|---|
 | D-pad | Up / Down / Left / Right |
@@ -132,6 +138,45 @@ After wake-up, USB, M8 Headless and sometimes Wi-Fi can take several seconds to 
 | B | Edit |
 | A | Options |
 | Select + Y | Exit m8c |
+
+Apply it:
+
+```sh
+sh /userdata/roms/ports/m8c/tools/set-controls.sh original
+```
+
+### Face Buttons profile
+
+This profile puts the four main M8 controls on the four face buttons.
+
+| Brick control | M8 action |
+|---|---|
+| D-pad | Up / Down / Left / Right |
+| X | Shift |
+| Y | Play |
+| B | Edit |
+| A | Options |
+| Select + Y | Exit m8c |
+
+`Y` by itself starts or stops playback. Holding `Select` and pressing `Y` exits the application.
+
+Apply it:
+
+```sh
+sh /userdata/roms/ports/m8c/tools/set-controls.sh face-buttons
+```
+
+Check the currently detected profile:
+
+```sh
+sh /userdata/roms/ports/m8c/tools/set-controls.sh status
+```
+
+Exit m8c before switching profiles. The tool changes only the four main gamepad assignments, leaving graphics, audio and other settings untouched. Before each change it saves the current configuration under:
+
+```text
+/userdata/system/backups/m8c/controls/
+```
 
 ## Updating
 
