@@ -1,65 +1,153 @@
 # m8c for TrimUI Brick / Knulli
 
-Automated ARM64 builds of [laamaa/m8c](https://github.com/laamaa/m8c) for the TrimUI Brick running Knulli.
+A current ARM64 build of [m8c](https://github.com/laamaa/m8c) for running a Dirtywave M8 or a Teensy with M8 Headless firmware from a TrimUI Brick.
 
-This repository does **not** contain M8 Headless firmware. It builds the client application that displays and controls a Dirtywave M8 or a Teensy running M8 Headless firmware.
+The original Brick port made this setup possible. This project keeps the same simple Ports experience, but builds a newer m8c with SDL3 and packages everything needed for Knulli.
 
-## What a release contains
+> This is the **m8c client**, not M8 Headless firmware for the Teensy.
 
-- `m8c-bin` built for Linux `aarch64`
-- a private copy of SDL3 in `lib/`
-- `install.sh`, which installs the client beside an existing m8c installation
-- a separate `m8c-v2.sh` launcher
-- the upstream controller database and license files
+## What is included
 
-The installer does not overwrite the existing client. It creates:
+- m8c built for Linux `aarch64`
+- a private SDL3 runtime, kept inside the port directory
+- the Knulli `cdc-acm.ko` module and a ready-to-use configuration
+- a launcher that lowers the Brick CPU limit while m8c is open
+- an optional suspend/autosave patch for M8 Headless
+- both SSH and SD-card installation methods
 
-```text
-/userdata/roms/ports/m8c-v2/
-/userdata/roms/ports/m8c-v2.sh
-```
+The current package has been tested on a TrimUI Brick running Knulli Scarab `2026/05/11`, with a Teensy 4.1 running M8 Headless `6.5.2`.
 
-The original installation remains at:
+## Installation option 1: one command over SSH
 
-```text
-/userdata/roms/ports/m8c/
-/userdata/roms/ports/m8c.sh
-```
-
-## Installation on Knulli
-
-Download the latest release archive and copy it to the Brick. Then run over SSH:
+Connect to the Brick:
 
 ```sh
-cd /userdata/system
-unzip m8c-trimui-brick-knulli-*.zip
-cd m8c-trimui-brick-knulli-*
-sh install.sh
+ssh root@BRICK_IP
 ```
 
-Refresh the Ports list or restart EmulationStation. A separate `m8c-v2` entry should appear.
-
-## Removal
+Then run:
 
 ```sh
-rm -rf /userdata/roms/ports/m8c-v2
-rm -f /userdata/roms/ports/m8c-v2.sh
+curl -fsSL https://raw.githubusercontent.com/myldy20/m8c-trimui-brick-knulli/main/install.sh | sh
 ```
 
-## Building a newer upstream version
+The installer downloads the latest release, verifies its SHA-256 checksum and installs the `m8c` entry under Ports. When upgrading an existing installation, it saves a backup under:
 
-Open **Actions → Build ARM64 release → Run workflow**, enter the upstream m8c version, and run it. The workflow creates both an artifact and, when requested, a GitHub Release.
+```text
+/userdata/system/backups/m8c/
+```
 
-## Compatibility approach
+During installation it asks whether to enable the optional suspend/autosave patch described below.
 
-The build targets an older Linux userspace (`Debian 11 / glibc 2.31`) to improve compatibility with embedded distributions. SDL3 is bundled locally; Knulli still supplies common system libraries such as libc, libm, libdrm, libgbm, EGL/GLES, ALSA, udev and libserialport.
+For a non-interactive install:
 
-Tested hardware and firmware combinations should be documented in Issues or release notes.
+```sh
+curl -fsSL https://raw.githubusercontent.com/myldy20/m8c-trimui-brick-knulli/main/install.sh | M8C_SLEEP_PATCH=yes sh
+```
 
-## Credits and licensing
+or without the suspend patch:
 
-- m8c: Copyright Jonne Kokkonen and contributors, MIT License
-- SDL3: Copyright SDL contributors, zlib License
-- Original TrimUI Brick/Knulli port: [f32-0/m8c-brick-knulli](https://github.com/f32-0/m8c-brick-knulli)
+```sh
+curl -fsSL https://raw.githubusercontent.com/myldy20/m8c-trimui-brick-knulli/main/install.sh | M8C_SLEEP_PATCH=no sh
+```
 
-This repository contains build and packaging scripts only. Upstream source code is downloaded during GitHub Actions builds.
+Refresh the Ports list or restart EmulationStation after installation.
+
+## Installation option 2: copy the files to the SD card
+
+1. Download the latest release ZIP.
+2. Extract it on your computer.
+3. Open the extracted `roms/ports/` directory.
+4. Copy its contents to `SHARE/roms/ports/` on the Knulli SD card.
+5. Put the card back into the Brick and refresh Ports or reboot.
+
+The archive already contains this layout:
+
+```text
+roms/ports/
+├── m8c.sh
+└── m8c/
+    ├── m8c-bin
+    ├── cdc-acm.ko
+    ├── lib/
+    │   └── libSDL3.so.0
+    ├── m8c/
+    │   ├── config.ini
+    │   └── gamecontrollerdb.txt
+    └── tools/
+        └── patch-suspend.sh
+```
+
+Copying the precompiled files manually does **not** change Knulli suspend behaviour. The optional patch can be enabled later over SSH:
+
+```sh
+sh /userdata/roms/ports/m8c/tools/patch-suspend.sh install
+```
+
+## CPU frequency behaviour
+
+The launcher temporarily limits the Brick CPU maximum frequency to **816 MHz** while m8c is running. m8c does not need the full 1.4 GHz available to most emulators, so this reduces heat and unnecessary power use.
+
+The previous CPU limit is restored when m8c exits normally. A reboot also restores the normal kernel CPU policy. After a forced power-off or `kill -9`, the lower limit may remain active until the next reboot because the launcher does not get a chance to run its cleanup handler.
+
+## Suspend and wake-up
+
+Knulli may remove USB host power immediately when the Brick enters suspend. With M8 Headless this can interrupt the Teensy before it has had time to disconnect and autosave.
+
+The optional suspend patch changes `/usr/bin/knulli-suspend` so that, while m8c is open, it:
+
+1. sends the M8 disconnect command;
+2. waits one second for autosave;
+3. continues with the normal Knulli suspend process.
+
+Enable it:
+
+```sh
+sh /userdata/roms/ports/m8c/tools/patch-suspend.sh install
+```
+
+Check its state:
+
+```sh
+sh /userdata/roms/ports/m8c/tools/patch-suspend.sh status
+```
+
+Remove it:
+
+```sh
+sh /userdata/roms/ports/m8c/tools/patch-suspend.sh remove
+```
+
+A backup of `knulli-suspend` is written to `/userdata/system/backups/m8c/` whenever the patch is added or removed. A Knulli system update may replace the patched file, in which case the patch needs to be applied again.
+
+After wake-up, USB, M8 Headless and sometimes Wi-Fi can take several seconds to return. This delay comes from the Brick/Knulli device drivers rather than m8c. If the M8 screen does not reconnect after waiting, exit and reopen m8c.
+
+## Controls
+
+| Brick control | M8 action |
+|---|---|
+| D-pad | Up / Down / Left / Right |
+| Select | Shift |
+| Start | Play |
+| B | Edit |
+| A | Options |
+| Select + Y | Exit m8c |
+
+## Updating
+
+Run the one-command installer again, or copy a newer release over `SHARE/roms/ports/`. The SSH installer keeps the previous installation as a timestamped backup and preserves the existing `config.ini` where possible.
+
+## Building a newer m8c release
+
+Open **Actions → Build ARM64 release → Run workflow**, enter the desired upstream m8c version and run the workflow. It builds inside a disposable Debian ARM64 container and can publish the resulting ZIP as a GitHub Release.
+
+The package targets an older Linux userspace (`Debian 11 / glibc 2.31`) for compatibility with embedded distributions. SDL3 is bundled with the port; Knulli supplies the remaining common system libraries.
+
+## Credits
+
+- [laamaa/m8c](https://github.com/laamaa/m8c) — the m8c client
+- [Dirtywave/M8HeadlessFirmware](https://github.com/Dirtywave/M8HeadlessFirmware) — M8 Headless firmware
+- [f32-0/m8c-brick-knulli](https://github.com/f32-0/m8c-brick-knulli) — the original TrimUI Brick/Knulli port
+- SDL contributors — SDL3
+
+m8c is MIT-licensed. SDL3 uses the zlib license. The build and packaging scripts in this repository are MIT-licensed.
