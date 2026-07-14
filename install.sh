@@ -113,6 +113,9 @@ with zipfile.ZipFile(archive) as package:
     package.extractall(destination)
 PY
 
+PAYLOAD_BINARY="$(find "$WORK/unpacked" -path '*/roms/ports/m8c/m8c-bin' -type f | head -n 1)"
+[ -n "$PAYLOAD_BINARY" ] || fail "The latest release uses the old package format. Publish revision 2 or newer first."
+
 PACKAGE_INSTALLER="$(find "$WORK/unpacked" -type f -name install.sh | head -n 1)"
 [ -n "$PACKAGE_INSTALLER" ] || fail "install.sh was not found in the release archive."
 
