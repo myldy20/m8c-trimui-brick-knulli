@@ -35,9 +35,11 @@ jobs:
         with:
           platforms: arm64
 
-      - name: Prepare r2 build script
+      - name: Prepare r3 build script
         run: |
           python3 experiments/sdl3-fbdev/prepare-build-r2.py \
+            experiments/sdl3-fbdev/build.sh
+          python3 experiments/sdl3-fbdev/prepare-build-r3.py \
             experiments/sdl3-fbdev/build.sh
 
       - name: Build inside disposable Debian ARM64 container
@@ -46,7 +48,7 @@ jobs:
             --platform linux/arm64 \
             -e M8C_VERSION=2.2.3 \
             -e SDL_VERSION=3.2.20 \
-            -e PACKAGE_REVISION=2 \
+            -e PACKAGE_REVISION=3 \
             -e OUT_DIR=/work/dist-fbdev \
             -v "$PWD:/work" \
             -w /work \
@@ -62,7 +64,7 @@ jobs:
       - name: Upload non-destructive test package
         uses: actions/upload-artifact@v4
         with:
-          name: m8c-223-fb-test-r2
+          name: m8c-223-fb-test-r3
           path: |
             dist-fbdev/*.zip
             dist-fbdev/*.zip.sha256
