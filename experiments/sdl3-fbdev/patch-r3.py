@@ -104,16 +104,17 @@ replace_once(
 )
 
 input_c = root / "src" / "input.c"
-replace_once(
-    input_c,
-    '''void input_handle_gamepad_axis(const struct app_context *ctx, const SDL_GamepadAxis axis,
-                                const Sint16 value) {
-''',
+text = input_c.read_text(encoding="utf-8")
+text, count = re.subn(
+    r'''void input_handle_gamepad_axis\(const struct app_context \*ctx, const SDL_GamepadAxis axis,\n\s+const Sint16 value\) \{''',
     '''void input_handle_gamepad_axis(struct app_context *ctx, const SDL_GamepadAxis axis,
-                                const Sint16 value) {
-''',
-    "make axis context mutable in implementation",
+                                const Sint16 value) {''',
+    text,
+    count=1,
 )
+if count != 1:
+    raise SystemExit("make axis context mutable in implementation: anchor not found")
+input_c.write_text(text, encoding="utf-8")
 
 # The same short tail appears in the button and axis handlers. Replace the last
 # occurrence so the Select+Start check is attached specifically to axis input.
