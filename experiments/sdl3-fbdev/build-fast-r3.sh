@@ -19,6 +19,7 @@ apt-get install -y --no-install-recommends \
     build-essential \
     binutils \
     pkg-config \
+    python3 \
     libserialport-dev \
     patchelf \
     zip
