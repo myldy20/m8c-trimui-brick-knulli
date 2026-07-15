@@ -61,11 +61,12 @@ export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
 export LD_LIBRARY_PATH="$PREFIX/lib"
 
 git clone --depth 1 --branch "v${M8C_VERSION}" https://github.com/laamaa/m8c.git
-cp /work/experiments/sdl3-fbdev/fb_bridge_r4.c m8c/src/fb_bridge.c
+cp /work/experiments/sdl3-fbdev/fb_bridge.c m8c/src/fb_bridge.c
 cp /work/experiments/sdl3-fbdev/fb_bridge.h m8c/src/fb_bridge.h
 python3 /work/experiments/sdl3-fbdev/patch-m8c.py m8c/src/render.c
 cp /work/experiments/sdl3-fbdev/audio_sdl_brick.c m8c/src/backends/audio_sdl.c
 python3 /work/experiments/sdl3-fbdev/patch-r2.py m8c
+cp /work/experiments/sdl3-fbdev/fb_bridge_r4.c m8c/src/fb_bridge.c
 python3 /work/experiments/sdl3-fbdev/patch-r4.py m8c
 
 cd m8c
