@@ -8,7 +8,8 @@ if len(sys.argv) != 2:
     raise SystemExit("usage: prepare-build-r3.py PATH_TO_BUILD_SH")
 
 path = pathlib.Path(sys.argv[1])
-text = path.read_text(encoding="utf-8")n
+text = path.read_text(encoding="utf-8")
+
 
 def replace_once(old: str, new: str, description: str) -> None:
     global text
