@@ -53,6 +53,7 @@ jobs:
 
       - name: Build m8c r3 inside disposable Debian ARM64 container
         run: |
+          set -o pipefail
           docker run --rm \
             --platform linux/arm64 \
             -e M8C_VERSION=2.2.3 \
@@ -63,7 +64,16 @@ jobs:
             -v "$PWD:/work" \
             -w /work \
             arm64v8/debian:bullseye \
-            bash /work/experiments/sdl3-fbdev/build-fast-r3.sh
+            bash /work/experiments/sdl3-fbdev/build-fast-r3.sh \
+            2>&1 | tee build-r3.log
+
+      - name: Upload r3 build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m8c-223-fb-test-r3-build-log
+          path: build-r3.log
+          if-no-files-found: warn
 
       - name: Validate package contents
         run: |
