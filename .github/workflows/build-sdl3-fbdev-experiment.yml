@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: build-sdl3-fbdev-${{ github.ref }}
@@ -30,19 +31,27 @@ jobs:
       - name: Check out experiment branch
         uses: actions/checkout@v4
 
+      - name: Download tested r2 package for its ARM64 SDL3 library
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            repos/myldy20/m8c-trimui-brick-knulli/actions/artifacts/8339269945/zip \
+            > prebuilt-r2-artifact.zip
+          mkdir -p prebuilt-r2-artifact prebuilt-r2
+          unzip -q prebuilt-r2-artifact.zip -d prebuilt-r2-artifact
+          unzip -q \
+            prebuilt-r2-artifact/m8c-223-fb-test-2.2.3-r2.zip \
+            -d prebuilt-r2
+          test -f \
+            prebuilt-r2/m8c-223-fb-test-2.2.3-r2/roms/ports/m8c-223-fb-test/lib/libSDL3.so.0
+
       - name: Enable ARM64 emulation
         uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
 
-      - name: Prepare r3 build script
-        run: |
-          python3 experiments/sdl3-fbdev/prepare-build-r2.py \
-            experiments/sdl3-fbdev/build.sh
-          python3 experiments/sdl3-fbdev/prepare-build-r3.py \
-            experiments/sdl3-fbdev/build.sh
-
-      - name: Build inside disposable Debian ARM64 container
+      - name: Build m8c r3 inside disposable Debian ARM64 container
         run: |
           docker run --rm \
             --platform linux/arm64 \
@@ -50,10 +59,11 @@ jobs:
             -e SDL_VERSION=3.2.20 \
             -e PACKAGE_REVISION=3 \
             -e OUT_DIR=/work/dist-fbdev \
+            -e PREBUILT_R2_DIR=/work/prebuilt-r2 \
             -v "$PWD:/work" \
             -w /work \
             arm64v8/debian:bullseye \
-            bash /work/experiments/sdl3-fbdev/build.sh
+            bash /work/experiments/sdl3-fbdev/build-fast-r3.sh
 
       - name: Validate package contents
         run: |
