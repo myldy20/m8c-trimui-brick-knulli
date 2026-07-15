@@ -18,6 +18,15 @@ def replace_once(path: pathlib.Path, old: str, new: str, description: str) -> No
     path.write_text(text.replace(old, new, 1), encoding="utf-8")
 
 
+def replace_last(path: pathlib.Path, old: str, new: str, description: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    position = text.rfind(old)
+    if position < 0:
+        raise SystemExit(f"{description}: anchor not found in {path}")
+    updated = text[:position] + new + text[position + len(old):]
+    path.write_text(updated, encoding="utf-8")
+
+
 render = root / "src" / "render.c"
 
 replace_once(
@@ -106,7 +115,9 @@ replace_once(
     "make axis context mutable in implementation",
 )
 
-replace_once(
+# The same short tail appears in the button and axis handlers. Replace the last
+# occurrence so the Select+Start check is attached specifically to axis input.
+replace_last(
     input_c,
     '''  keycode = gamepad_state.current_buttons;
 
