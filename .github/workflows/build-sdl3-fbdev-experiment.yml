@@ -51,28 +51,28 @@ jobs:
         with:
           platforms: arm64
 
-      - name: Build m8c r5 inside disposable Debian ARM64 container
+      - name: Build m8c r6 inside disposable Debian ARM64 container
         run: |
           set -o pipefail
           docker run --rm \
             --platform linux/arm64 \
             -e M8C_VERSION=2.2.3 \
             -e SDL_VERSION=3.2.20 \
-            -e PACKAGE_REVISION=5 \
+            -e PACKAGE_REVISION=6 \
             -e OUT_DIR=/work/dist-fbdev \
             -e PREBUILT_R2_DIR=/work/prebuilt-r2 \
             -v "$PWD:/work" \
             -w /work \
             arm64v8/debian:bullseye \
-            bash /work/experiments/sdl3-fbdev/build-fast-r5.sh \
-            2>&1 | tee build-r5.log
+            bash /work/experiments/sdl3-fbdev/build-fast-r6.sh \
+            2>&1 | tee build-r6.log
 
-      - name: Upload r5 build log
+      - name: Upload r6 build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: m8c-223-fb-test-r5-build-log
-          path: build-r5.log
+          name: m8c-223-fb-test-r6-build-log
+          path: build-r6.log
           if-no-files-found: warn
 
       - name: Validate package contents
@@ -84,7 +84,7 @@ jobs:
       - name: Upload non-destructive test package
         uses: actions/upload-artifact@v4
         with:
-          name: m8c-223-fb-test-r5
+          name: m8c-223-fb-test-r6
           path: |
             dist-fbdev/*.zip
             dist-fbdev/*.zip.sha256
