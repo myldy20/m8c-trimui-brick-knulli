@@ -1,0 +1,58 @@
+name: Build SDL3 fbdev experiment
+
+on:
+  push:
+    branches:
+      - experiment/sdl3-fbdev-bridge
+    paths:
+      - ".github/workflows/build-sdl3-fbdev-experiment.yml"
+      - "experiments/sdl3-fbdev/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-sdl3-fbdev-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out experiment branch
+        uses: actions/checkout@v4
+
+      - name: Enable ARM64 emulation
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Build inside disposable Debian ARM64 container
+        run: |
+          docker run --rm \
+            --platform linux/arm64 \
+            -e M8C_VERSION=2.2.3 \
+            -e SDL_VERSION=3.2.20 \
+            -e PACKAGE_REVISION=1 \
+            -e OUT_DIR=/work/dist-fbdev \
+            -v "$PWD:/work" \
+            -w /work \
+            arm64v8/debian:bullseye \
+            bash /work/experiments/sdl3-fbdev/build.sh
+
+      - name: Validate package contents
+        run: |
+          PACKAGE_NAME="$(cat dist-fbdev/package-name.txt)"
+          unzip -l "dist-fbdev/${PACKAGE_NAME}.zip"
+          cat "dist-fbdev/${PACKAGE_NAME}.zip.sha256"
+
+      - name: Upload non-destructive test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: m8c-223-fb-test
+          path: |
+            dist-fbdev/*.zip
+            dist-fbdev/*.zip.sha256
+          if-no-files-found: error
