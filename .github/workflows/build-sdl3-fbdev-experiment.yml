@@ -7,6 +7,12 @@ on:
     paths:
       - ".github/workflows/build-sdl3-fbdev-experiment.yml"
       - "experiments/sdl3-fbdev/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-sdl3-fbdev-experiment.yml"
+      - "experiments/sdl3-fbdev/**"
   workflow_dispatch:
 
 permissions:
