@@ -1,0 +1,63 @@
+name: Build SDL2 baseline experiment
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/sdl2-runtime-baseline
+    paths:
+      - ".github/workflows/build-sdl2-baseline.yml"
+      - "scripts/build-sdl2-baseline.sh"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-sdl2-baseline.yml"
+      - "scripts/build-sdl2-baseline.sh"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-sdl2-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out experiment branch
+        uses: actions/checkout@v4
+
+      - name: Enable ARM64 emulation
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Build inside disposable Debian ARM64 container
+        run: |
+          docker run --rm \
+            --platform linux/arm64 \
+            -e OUT_DIR=/work/dist-sdl2 \
+            -v "$PWD:/work" \
+            -w /work \
+            arm64v8/debian:bullseye \
+            bash /work/scripts/build-sdl2-baseline.sh
+
+      - name: Validate package contents
+        run: |
+          PACKAGE_NAME="$(cat dist-sdl2/package-name.txt)"
+          unzip -l "dist-sdl2/${PACKAGE_NAME}.zip"
+          cat "dist-sdl2/${PACKAGE_NAME}.zip.sha256"
+          cat "dist-sdl2/dynamic-section.txt"
+
+      - name: Upload non-destructive test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: m8c-sdl2-runtime-baseline
+          path: |
+            dist-sdl2/*.zip
+            dist-sdl2/*.zip.sha256
+            dist-sdl2/dynamic-section.txt
+          if-no-files-found: error
