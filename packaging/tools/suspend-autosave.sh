@@ -19,7 +19,7 @@ backup_target() {
     mkdir -p "$BACKUP_DIR"
     stamp="$(date +%Y%m%d-%H%M%S)"
     backup="$BACKUP_DIR/knulli-suspend-$stamp"
-    cp -p "$TARGET" "$backup"
+    cp "$TARGET" "$backup"
     echo "$backup"
 }
 
