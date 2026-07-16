@@ -9,7 +9,7 @@ on:
       - ".github/workflows/release.yml"
       - "port/**"
       - "packaging/**"
-      - "scripts/build-release.sh"
+      - "scripts/**"
       - "install.sh"
       - "README.md"
       - "CHANGELOG.md"
@@ -20,7 +20,7 @@ on:
       - ".github/workflows/release.yml"
       - "port/**"
       - "packaging/**"
-      - "scripts/build-release.sh"
+      - "scripts/**"
       - "install.sh"
       - "README.md"
       - "CHANGELOG.md"
@@ -30,21 +30,16 @@ permissions:
   contents: write
 
 concurrency:
-  group: m8c-brick-release-${{ github.ref }}
+  group: m8c-brick-release-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
-      - name: Enable ARM64 emulation
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
 
       - name: Build ARM64 release package
         run: |
