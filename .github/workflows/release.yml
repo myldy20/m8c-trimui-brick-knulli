@@ -1,0 +1,96 @@
+name: Build and release TrimUI Brick port
+
+on:
+  push:
+    branches:
+      - main
+      - "release/**"
+    paths:
+      - ".github/workflows/release.yml"
+      - "port/**"
+      - "packaging/**"
+      - "scripts/build-release.sh"
+      - "install.sh"
+      - "README.md"
+      - "CHANGELOG.md"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/release.yml"
+      - "port/**"
+      - "packaging/**"
+      - "scripts/build-release.sh"
+      - "install.sh"
+      - "README.md"
+      - "CHANGELOG.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: m8c-brick-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Enable ARM64 emulation
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Build ARM64 release package
+        run: |
+          set -o pipefail
+          docker run --rm \
+            --platform linux/arm64 \
+            -e M8C_VERSION=2.2.3 \
+            -e SDL_VERSION=3.2.20 \
+            -e RELEASE_REVISION=1 \
+            -e OUT_DIR=/work/dist \
+            -v "$PWD:/work" \
+            -w /work \
+            arm64v8/debian:bullseye \
+            bash /work/scripts/build-release.sh \
+            2>&1 | tee build.log
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m8c-trimui-brick-build-log
+          path: build.log
+          if-no-files-found: warn
+
+      - name: Upload release package
+        uses: actions/upload-artifact@v4
+        with:
+          name: m8c-trimui-brick-knulli
+          path: |
+            dist/m8c-trimui-brick-knulli.zip
+            dist/m8c-trimui-brick-knulli.zip.sha256
+            dist/ldd.txt
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v2.2.3-brick-r1
+        run: |
+          gh release delete m8c-v2.2.3-brick-r3 --yes --cleanup-tag || true
+          gh release delete "$TAG" --yes --cleanup-tag || true
+          gh release create "$TAG" \
+            dist/m8c-trimui-brick-knulli.zip \
+            dist/m8c-trimui-brick-knulli.zip.sha256 \
+            --target "$GITHUB_SHA" \
+            --title "m8c 2.2.3 for TrimUI Brick / Knulli" \
+            --notes-file CHANGELOG.md \
+            --latest

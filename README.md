@@ -1,14 +1,10 @@
 # m8c 2.2.3 for TrimUI Brick / Knulli
 
-A device-specific ARM64 port of [m8c](https://github.com/laamaa/m8c) for using a Dirtywave M8 or Teensy 4.1 with M8 Headless firmware from a TrimUI Brick.
+An ARM64 port of [m8c](https://github.com/laamaa/m8c) for running a Dirtywave M8 or a Teensy 4.1 with M8 Headless firmware from a TrimUI Brick.
 
-> This repository contains the **m8c client**, not M8 Headless firmware for the Teensy.
+This repository contains the **m8c client**, not the M8 Headless firmware.
 
-## Project status
-
-The current development build is working on real hardware, but the new SDL3 port has not yet been published as a normal GitHub Release.
-
-Verified setup:
+## Tested hardware
 
 - TrimUI Brick (`sun50iw10`, aarch64)
 - Knulli Scarab `2026/05/11`
@@ -17,38 +13,57 @@ Verified setup:
 - upstream m8c `2.2.3`
 - SDL `3.2.20`
 
-Working:
+The release installs as a separate Ports entry named `m8c-223`. It does not overwrite the original `m8c` Brick port.
 
-- M8 display on the Brick screen
-- USB serial connection and reconnect after normal startup
-- M8 USB audio routed to the Brick speaker
-- D-pad and all four face buttons
-- clean application exit and M8 disconnect
+## One-command installation
 
-Still being tuned:
+Connect to the Brick over SSH and run:
 
-- display latency/smoothness compared with the original SDL2 Brick port
-- suspend/autosave integration
-- final release packaging and one-command installer
+```sh
+curl -fsSL https://raw.githubusercontent.com/myldy20/m8c-trimui-brick-knulli/main/install.sh | sh
+```
 
-**Do not use the older `m8c-v2.2.3-brick-r3` release on Knulli Scarab.** That release used generic SDL3 video backends and fails on the Brick with `No available video device`. The tested port lives in draft PR #2 until the final device check is complete.
+The installer verifies the release checksum and asks for:
 
-## Why a custom video path is required
+1. CPU limit while m8c is open;
+2. suspend/autosave protection;
+3. control layout.
 
-The Brick does not expose a normal DRM/KMS display suitable for generic SDL3. Knulli's system SDL2 contains a vendor PowerVR backend (`MALI_CreateWindow`), which is why the original SDL2 port works smoothly.
+Refresh Ports or reboot after installation.
 
-The current SDL3 port therefore uses:
+### Non-interactive installation
 
-1. SDL3's offscreen software renderer;
-2. a native `320x240` M8 frame;
-3. a custom Linux fbdev bridge;
-4. nearest-neighbour row expansion into the active `1024x768` framebuffer page.
+```sh
+curl -fsSL https://raw.githubusercontent.com/myldy20/m8c-trimui-brick-knulli/main/install.sh |
+  M8C_CPU_LIMIT=1008 M8C_AUTOSAVE=yes M8C_LAYOUT=face sh
+```
 
-An attempted direct software renderer into live framebuffer memory was rejected because the display exposed partially drawn frames and flickered heavily. The working approach keeps rendering offscreen and presents completed frames only.
+Accepted values:
+
+- `M8C_CPU_LIMIT`: `system`, `816`, `1008`, `1200`, `1416`, `keep`
+- `M8C_AUTOSAVE`: `yes`, `no`, `keep`
+- `M8C_LAYOUT`: `face`, `classic`, `keep`
+
+The default fresh-install profile is `1008 MHz`, autosave chosen interactively, and the `face` layout.
+
+## Manual SD-card installation
+
+Download `m8c-trimui-brick-knulli.zip` from the latest release and extract it. Copy the contents of its `roms/ports/` directory into Knulli's `SHARE/roms/ports/` directory.
+
+Manual copying installs the default settings but does not patch Knulli suspend. Configure the port afterwards over SSH:
+
+```sh
+sh /userdata/roms/ports/m8c-223/tools/configure.sh \
+  --cpu 1008 \
+  --layout face \
+  --autosave yes
+```
 
 ## Controls
 
-The Knulli/SDL semantic gamepad mapping for the Brick is incorrect, so the port reads verified raw joystick button numbers directly.
+Knulli's semantic SDL mapping for the Brick is incorrect, so the port reads verified raw joystick codes.
+
+### Face layout
 
 | Brick control | M8 action |
 |---|---|
@@ -61,65 +76,85 @@ The Knulli/SDL semantic gamepad mapping for the Brick is incorrect, so the port 
 | Start | Unused |
 | Select + B | Exit m8c |
 
-L1, R1, L2, R2 and the volume buttons are ignored by m8c. The volume buttons remain available to Knulli.
+### Classic layout
 
-Verified raw input map:
+| Brick control | M8 action |
+|---|---|
+| D-pad | Navigate |
+| A | Option |
+| B | Edit |
+| Select | Shift |
+| Start | Play |
+| X / Y | Unused |
+| Select + Y | Exit m8c |
 
-```text
-B=0 A=1 X=2 Y=3 L1=4 R1=5 L2=6 R2=7 Select=8 Start=9
-D-pad=hat0
-GUID=03006aae5e0400008e02000014010000
+Change settings later with:
+
+```sh
+sh /userdata/roms/ports/m8c-223/tools/configure.sh \
+  --cpu 816 \
+  --layout classic \
+  --autosave yes
 ```
 
-## Audio
+Show current settings:
 
-SDL3 enumerates the M8 as `M8:USB Audio`. A dedicated audio pump thread continuously drains the recording stream and feeds the Brick playback stream. This replaced an earlier callback-based bridge that eventually produced ALSA capture overruns.
-
-## Building the current candidate
-
-Open:
-
-```text
-Actions → Build SDL3 fbdev experiment → Run workflow
+```sh
+sh /userdata/roms/ports/m8c-223/tools/configure.sh status
 ```
 
-The workflow builds inside a disposable Debian Bullseye ARM64 container and uploads a non-destructive test package named like:
+## CPU limit
+
+The launcher can temporarily lower `scaling_max_freq` while m8c is running and restores every previous value on exit. `1008 MHz` is the default balance; `816 MHz` reduces heat and battery use further.
+
+A forced `kill -9` prevents the launcher cleanup trap from running. Rebooting restores the normal Knulli CPU policy.
+
+## Suspend/autosave protection
+
+Knulli may remove USB power immediately during suspend. The optional patch adds a small guarded block to `/usr/bin/knulli-suspend`: when `m8c-bin` is running, it sends `SIGTERM`, waits one second for m8c to disconnect the M8 and allow Headless autosave, then continues the normal suspend script.
+
+Every change creates a timestamped backup under:
 
 ```text
-m8c-223-fb-test-r8
+/userdata/system/backups/m8c/suspend/
 ```
 
-The package installs as a separate Ports entry:
+A Knulli system update may replace the patched script. Run the installer or the configuration command again after an update.
+
+## Video and audio implementation
+
+The Brick does not expose a normal DRM/KMS display suitable for generic SDL3. The port therefore:
+
+1. renders a completed `320x240` ARGB8888 frame in memory;
+2. expands that frame to the active `1024x768` Linux framebuffer page;
+3. avoids `SDL_RenderReadPixels` and avoids drawing directly into the live scanout buffer.
+
+Direct rendering into the live framebuffer was rejected during hardware testing because it exposed partially drawn frames and flickered heavily.
+
+M8 USB audio is drained by a dedicated SDL3 pump thread. A startup watchdog restarts initially silent ALSA streams up to three times.
+
+## Updating and backups
+
+Run the one-command installer again. It backs up the previous `m8c-223` installation, and also migrates the former `m8c-223-fb-test` development port, under:
 
 ```text
-m8c-223-fb-test
+/userdata/system/backups/m8c/releases/
 ```
 
-It does not overwrite the original `m8c` port or the SDL2 baseline test.
+The original `m8c` port is never modified.
 
-## Development history
+## Building
 
-The implementation and the failed approaches are retained under:
+The GitHub Actions workflow builds SDL3 and m8c inside a disposable Debian Bullseye ARM64 container, validates all runtime dependencies and produces:
 
 ```text
-experiments/sdl3-fbdev/
+m8c-trimui-brick-knulli.zip
+m8c-trimui-brick-knulli.zip.sha256
 ```
 
-Important milestones:
+## Known scope
 
-- SDL2 baseline: proved that Knulli's patched system SDL2 works with the Brick display.
-- r1: first real m8c 2.2.3 image through SDL3 offscreen + fbdev.
-- r2: removed framebuffer clearing, fixed duplicate D-pad events and restored audio.
-- r3: direct live-framebuffer rendering; rejected because of severe flicker and latency.
-- r4: native-resolution readback and row expansion; first acceptably responsive display.
-- r5/r6: audio pump thread and exact raw-input diagnostics.
-- r7: fully working controls from raw joystick events.
-- r8: final control layout and restored upstream 120 Hz callback rate for lower latency.
-
-## Repository branches and pull requests
-
-- PR #2 — current SDL3/fbdev port; draft until r8 is tested on the device.
-- PR #1 — successful pre-SDL3/SDL2 baseline retained for reference.
+The verified target is the TrimUI Brick with M8 Headless firmware reporting the MK1-style `320x240` display. Other Knulli versions and M8 hardware models have not been verified.
 
 ## Credits
 
