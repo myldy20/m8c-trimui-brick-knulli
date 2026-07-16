@@ -108,7 +108,7 @@ PACKAGE_INSTALLER="$(find "$WORK/unpacked" -type f -name install-package.sh -pri
 [ -n "$PACKAGE_INSTALLER" ] || fail "install-package.sh is missing from the release"
 chmod 755 "$PACKAGE_INSTALLER"
 
-sh "$PACKAGE_INSTALLER" \
+"$PACKAGE_INSTALLER" \
     --cpu "$CPU" \
     --layout "$LAYOUT" \
     --autosave "$AUTOSAVE"
