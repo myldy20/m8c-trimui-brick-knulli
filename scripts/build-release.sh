@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 export M8C_VERSION="${M8C_VERSION:-2.2.3}"
 export SDL_VERSION="${SDL_VERSION:-3.2.20}"
-export RELEASE_REVISION="${RELEASE_REVISION:-1}"
+export RELEASE_REVISION="${RELEASE_REVISION:-2}"
 export ORIGINAL_PORT_TAG="${ORIGINAL_PORT_TAG:-v0.1}"
 export OUT_DIR="${OUT_DIR:-/work/dist}"
 export BUILD_DIR="${BUILD_DIR:-/tmp/m8c-brick-release-build}"

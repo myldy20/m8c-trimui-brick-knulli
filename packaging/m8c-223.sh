@@ -1,27 +1,44 @@
 #!/bin/bash
 
-XDG_DATA_HOME=${XDG_DATA_HOME:-$HOME/.local/share}
-
-if [ -d "/opt/system/Tools/PortMaster/" ]; then
-    controlfolder="/opt/system/Tools/PortMaster"
-elif [ -d "/opt/tools/PortMaster/" ]; then
-    controlfolder="/opt/tools/PortMaster"
-elif [ -d "$XDG_DATA_HOME/PortMaster/" ]; then
-    controlfolder="$XDG_DATA_HOME/PortMaster"
-else
-    controlfolder="/roms/ports/PortMaster"
-fi
-
-source "$controlfolder/control.txt"
-[ -f "${controlfolder}/mod_${CFW_NAME}.txt" ] && source "${controlfolder}/mod_${CFW_NAME}.txt"
-get_controls
-
-GAMEDIR="/$directory/ports/m8c-223"
+# This port targets Knulli on TrimUI Brick and installs into this fixed path.
+# Do not depend on PortMaster's control.txt just to discover /userdata.
+GAMEDIR="/userdata/roms/ports/m8c-223"
 BINARY="m8c-bin"
 CUR_TTY="/dev/tty0"
 SETTINGS="$GAMEDIR/brick.conf"
 CPU_STATE="/tmp/m8c-223-cpufreq.$$"
+LOG_FILE="$GAMEDIR/log.txt"
 RESULT=0
+
+mkdir -p "$GAMEDIR" 2>/dev/null || true
+if ! : > "$LOG_FILE" 2>/dev/null; then
+    LOG_FILE="/tmp/m8c-223.log"
+    : > "$LOG_FILE"
+fi
+exec > >(tee "$LOG_FILE") 2>&1
+
+echo "m8c TrimUI Brick launcher"
+echo "timestamp=$(date -Iseconds 2>/dev/null || date)"
+echo "gamedir=$GAMEDIR"
+echo "log=$LOG_FILE"
+echo "portmaster_required=false"
+echo
+
+chmod 666 "$CUR_TTY" 2>/dev/null || true
+
+show_error() {
+    local message="$*"
+    echo "ERROR: $message"
+    if [ -w "$CUR_TTY" ]; then
+        printf '\033c\nm8c failed to start\n\n%s\n\nLog: %s\n' "$message" "$LOG_FILE" > "$CUR_TTY" 2>/dev/null || true
+        sleep 5
+    fi
+}
+
+fail() {
+    show_error "$*"
+    exit 1
+}
 
 CPU_LIMIT_MHZ="1008"
 CONTROL_PROFILE="face"
@@ -96,25 +113,28 @@ finish() {
     restore_cpu_limit
     sync
     printf '\033c' > "$CUR_TTY" 2>/dev/null || true
-    type pm_finish >/dev/null 2>&1 && pm_finish
 }
 
 trap finish EXIT
 trap 'RESULT=130; exit "$RESULT"' INT
 trap 'RESULT=143; exit "$RESULT"' TERM HUP
 
+[ -d "$GAMEDIR" ] || fail "Installation directory is missing: $GAMEDIR"
+[ -x "$GAMEDIR/$BINARY" ] || fail "Executable is missing or not executable: $GAMEDIR/$BINARY"
+[ -f "$GAMEDIR/lib/libSDL3.so.0" ] || fail "Bundled SDL3 library is missing"
+[ -f "$GAMEDIR/cdc-acm.ko" ] || fail "USB serial kernel module is missing"
+[ -e /dev/fb0 ] || fail "Linux framebuffer /dev/fb0 is unavailable"
+
 mkdir -p "$GAMEDIR/m8c"
-: > "$GAMEDIR/log.txt"
-exec > >(tee "$GAMEDIR/log.txt") 2>&1
-cd "$GAMEDIR" || exit 1
+cd "$GAMEDIR" || fail "Cannot enter installation directory"
 
 {
-    echo "timestamp=$(date -Iseconds 2>/dev/null || date)"
-    echo "launcher=/$directory/ports/m8c-223.sh"
+    echo "launcher=/userdata/roms/ports/m8c-223.sh"
     echo "gamedir=$GAMEDIR"
     echo "binary=$GAMEDIR/$BINARY"
     echo "control_profile=$CONTROL_PROFILE"
     echo "cpu_limit_mhz=$CPU_LIMIT_MHZ"
+    echo "portmaster_required=false"
     echo "SDL_VIDEODRIVER=$SDL_VIDEODRIVER"
     echo "SDL_RENDER_DRIVER=$SDL_RENDER_DRIVER"
     echo "SDL_AUDIODRIVER=$SDL_AUDIODRIVER"
@@ -131,10 +151,14 @@ fi
 
 chmod 666 /dev/ttyACM* 2>/dev/null || true
 chmod 666 /dev/fb0 2>/dev/null || true
-chmod 666 "$CUR_TTY" 2>/dev/null || true
 
 apply_cpu_limit
 printf '\033c' > "$CUR_TTY" 2>/dev/null || true
 "./$BINARY"
 RESULT=$?
+
+if [ "$RESULT" -ne 0 ]; then
+    show_error "m8c exited with status $RESULT"
+fi
+
 exit "$RESULT"

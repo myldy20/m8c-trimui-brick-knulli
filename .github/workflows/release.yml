@@ -48,7 +48,7 @@ jobs:
             --platform linux/arm64 \
             -e M8C_VERSION=2.2.3 \
             -e SDL_VERSION=3.2.20 \
-            -e RELEASE_REVISION=1 \
+            -e RELEASE_REVISION=2 \
             -e OUT_DIR=/work/dist \
             -v "$PWD:/work" \
             -w /work \
@@ -78,7 +78,7 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: v2.2.3-brick-r1
+          TAG: v2.2.3-brick-r2
         run: |
           gh release delete m8c-v2.2.3-brick-r3 --yes --cleanup-tag || true
           gh release delete "$TAG" --yes --cleanup-tag || true
@@ -86,6 +86,6 @@ jobs:
             dist/m8c-trimui-brick-knulli.zip \
             dist/m8c-trimui-brick-knulli.zip.sha256 \
             --target "$GITHUB_SHA" \
-            --title "m8c 2.2.3 for TrimUI Brick / Knulli" \
+            --title "m8c 2.2.3 for TrimUI Brick / Knulli (r2)" \
             --notes-file CHANGELOG.md \
             --latest

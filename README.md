@@ -15,6 +15,8 @@ This repository contains the **m8c client**, not the M8 Headless firmware.
 
 The release installs as a separate Ports entry named `m8c-223`. It does not overwrite the original `m8c` Brick port.
 
+Release r2 runs directly from Knulli's `/userdata/roms/ports` tree and does **not** require PortMaster.
+
 ## One-command installation
 
 Connect to the Brick over SSH and run:
@@ -102,6 +104,19 @@ Show current settings:
 ```sh
 sh /userdata/roms/ports/m8c-223/tools/configure.sh status
 ```
+
+## Troubleshooting
+
+If m8c returns to Ports after a black screen, inspect the early launcher log:
+
+```sh
+cat /userdata/roms/ports/m8c-223/log.txt
+cat /userdata/roms/ports/m8c-223/launcher-proof.txt
+```
+
+Release r2 starts logging before runtime initialization and shows a short on-screen error for missing package files or framebuffer access. PortMaster is not part of the startup path.
+
+Reinstall or update with the same one-command installer. It verifies the downloaded archive and preserves the previous configuration.
 
 ## CPU limit
 
