@@ -70,6 +70,9 @@ controller_guid=03006aae5e0400008e02000014010000
 control_profiles=face,classic
 default_profile=face
 default_cpu_limit_mhz=1008
+launcher_path=/userdata/roms/ports/m8c-223.sh
+portmaster_required=false
+early_launcher_log=true
 exit_face=select-plus-b
 exit_classic=select-plus-y
 audio_pump=dedicated-thread
@@ -100,6 +103,9 @@ grep -a -q 'fbdev bridge: completed ARGB8888' "$APP_DIR/m8c-bin"
 grep -a -q 'Brick audio startup is silent' "$APP_DIR/m8c-bin"
 grep -a -q 'M8C_CONTROL_PROFILE' "$APP_DIR/m8c-bin"
 bash -n "$PORTS_DIR/m8c-223.sh"
+grep -q '^GAMEDIR="/userdata/roms/ports/m8c-223"$' "$PORTS_DIR/m8c-223.sh"
+grep -q 'portmaster_required=false' "$PORTS_DIR/m8c-223.sh"
+! grep -Eq '^[[:space:]]*source .*control\.txt' "$PORTS_DIR/m8c-223.sh"
 sh -n "$APP_DIR/tools/configure.sh"
 sh -n "$APP_DIR/tools/suspend-autosave.sh"
 sh -n "$PACKAGE_ROOT/install-package.sh"
